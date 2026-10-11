@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e0e11">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
 <title>MegaGen — mega bulk generator</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⚡</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,6 +18,7 @@
 <body>
 
 <header id="topbar">
+  <button class="icon-btn mobile-only" id="btn-panel-drawer" title="Open panel" aria-label="Open panel">☰</button>
   <h1 class="app-title">⚡ MegaGen</h1>
 
   <div class="proj-wrap">
@@ -27,12 +34,25 @@
   </div>
 
   <div id="topstats"></div>
-  <button class="btn ghost" id="btn-guide">Guide</button>
-  <button class="btn ghost" id="btn-settings">⚙ Settings</button>
+  <button class="btn ghost desk-only" id="btn-guide">Guide</button>
+  <button class="btn ghost desk-only" id="btn-settings">⚙ Settings</button>
+  <button class="icon-btn mobile-only" id="btn-topbar-menu" title="More" aria-label="More">⋮</button>
 </header>
+
+<div id="topbar-menu" class="pop pop-fixed hidden">
+  <button class="pop-item" id="btn-guide-m">Guide</button>
+  <button class="pop-item" id="btn-settings-m">⚙ Settings</button>
+  <button class="pop-item" id="btn-view-m">View options</button>
+</div>
+
+<div id="panel-backdrop" class="hidden"></div>
 
 <main id="body">
   <aside id="panel">
+    <div class="panel-head mobile-only">
+      <span>Setup</span>
+      <button class="icon-btn" id="btn-panel-close" aria-label="Close panel">✕</button>
+    </div>
     <div id="panel-inner">
       <!-- Prompts -->
       <section class="panel-sec">
@@ -112,6 +132,7 @@
 </main>
 
 <footer id="genbar">
+  <button class="icon-btn mobile-only" id="btn-genbar-toggle" aria-label="Toggle options" title="Toggle options">⚙</button>
   <div class="gen-controls" id="gen-controls"></div>
   <div class="gen-right">
     <div id="gen-note"></div>
@@ -217,8 +238,7 @@
       <p class="hint">Builds small silent preview clips in the background — turn off to save disk/CPU.</p>
 
       <h4>🗑 Trash <span id="trash-count-badge" class="badge">0</span></h4>
-      <p class="hint">Deleted items land here. Tap to select · double-click to view it
-        fullscreen. Restore puts it back into the open project.</p>
+      <p class="hint">Deleted items land here. Tap to select · double-tap to view fullscreen. Restore puts it back into the open project.</p>
       <div id="trash-gallery" class="trash-gallery"></div>
       <div class="row-btns">
         <button class="btn sm" id="btn-trash-restore">↩ Restore</button>
@@ -335,15 +355,15 @@
       <h3>⌨️ Cheatsheet — everything the mouse &amp; keyboard can do</h3>
       <ul>
         <li><b>Ctrl+Enter</b> anywhere = press Generate · runs stack, media appears live</li>
-        <li><b>Click</b> a tile → fullscreen viewer: <b>←/→</b> browse, <b>Del</b> deletes, <b>Esc</b> closes,
-          wheel zooms, double-click toggles 2.5×</li>
+        <li><b>Click / tap</b> a tile → fullscreen viewer: <b>←/→</b> or swipe to browse, <b>Del</b> deletes, <b>Esc</b> or ✕ closes,
+          wheel/pinch zooms, double-tap toggles 2.5×</li>
         <li><b>Videos in the viewer:</b> Space play/pause · M mute · F fullscreen · drag the bar
           to seek — <b>←/→</b> still switch between items</li>
-        <li><b>Ctrl+click</b> toggles selection, <b>Shift+click</b> selects a range, <b>drag</b> a box on empty
+        <li><b>Ctrl+click</b> or <b>long-press</b> toggles selection, <b>Shift+click</b> selects a range, <b>drag</b> a box on empty
           grid space to lasso, <b>Ctrl+A</b> selects all, <b>Esc</b> clears</li>
         <li><b>Del</b> deletes the selection (2 or more asks for confirmation first)</li>
         <li><b>Ctrl+C</b> with one image selected copies it to the clipboard</li>
-        <li>Hover any tile for quick actions: 🔄 regenerate · ✨ new · ✏️ edit · 📋 copy · 🗑 delete</li>
+        <li>Hover (or tap) any tile for quick actions: 🔄 regenerate · ✨ new · ✏️ edit · 📋 copy · 🗑 delete</li>
         <li><b>✏️ Edit</b> a tile (or the pencil in fullscreen) = tweak that item's prompt and generate fresh takes right next to it — same model, settings and references; images let you pick 1–10 outputs.</li>
         <li>Deleted things always land in <code>output/.trash</code> — recoverable, never destroyed</li>
       </ul>
@@ -361,6 +381,8 @@
     <button class="icon-btn danger" data-lb="delete" title="Delete">🗑</button>
     <button class="icon-btn" data-lb="close" title="Close">✕</button>
   </div>
+  <button class="lb-nav prev mobile-only" data-lb-nav="-1" aria-label="Previous">‹</button>
+  <button class="lb-nav next mobile-only" data-lb-nav="1" aria-label="Next">›</button>
   <div class="lb-stage">
     <img class="lb-img" alt="">
     <div class="lb-player hidden">
@@ -402,5 +424,6 @@
 <script src="/static/lightbox.js"></script>
 <script src="/static/settings.js"></script>
 <script src="/static/app.js"></script>
+<script src="/static/mobile.js"></script>
 </body>
 </html>

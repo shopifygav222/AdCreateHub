@@ -17,8 +17,9 @@ import time        # noqa: E402
 import webbrowser  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-HOST = "127.0.0.1"
-PORT = 7861          # 7861 so it never collides with Bananza's 7860
+HOST = os.environ.get("MEGAGEN_HOST", "127.0.0.1")
+# 7861 so it never collides with Bananza's 7860
+PORT = int(os.environ.get("MEGAGEN_PORT", "7861"))
 APP_VERSION = "1.0"
 BASE_DIR = Path(__file__).resolve().parent
 OUT_DIR = BASE_DIR / "output"

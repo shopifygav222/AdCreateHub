@@ -1,0 +1,16 @@
+[Unit]
+Description=AdCreateHub remote control panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/adcreatehub
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/adcreatehub/gcp-key.json
+ExecStart=/home/ubuntu/adcreatehub/venv/bin/python /home/ubuntu/adcreatehub/controller.py
+Restart=always
+RestartSec=5
+Environment=BANANA_AUTH=gav:minion01
+
+[Install]
+WantedBy=multi-user.target
