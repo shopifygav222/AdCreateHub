@@ -1160,8 +1160,11 @@ h1.app-title {
    below 900px to reshape it into a mobile app layout.
    ============================================================================ */
 
-/* small-tablet / landscape phone */
-@media (max-width: 900px) {
+/* mobile layout: narrow screens AND wide-landscape phones (iPhone Pro Max
+   landscape is 932×430 — too wide for max-width 900 but still a phone, so
+   the OR clause pulls it in via its short height). */
+@media (max-width: 900px),
+       (orientation: landscape) and (max-height: 600px) {
   .mobile-only { display: initial !important; }
   .desk-only { display: none !important; }
   button.mobile-only { display: inline-flex !important; align-items: center; justify-content: center; }
@@ -1330,8 +1333,9 @@ h1.app-title {
   .modal-body { padding-bottom: 24px; }
 }
 
-/* phone-size tightening */
-@media (max-width: 540px) {
+/* phone-size tightening — also fires on landscape phones ≤ 500px tall */
+@media (max-width: 540px),
+       (orientation: landscape) and (max-height: 500px) {
   #topbar {
     gap: 6px;
     padding: 6px 10px;

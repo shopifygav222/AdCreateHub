@@ -6,7 +6,8 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const MOBILE_Q = '(max-width: 900px)';
+  // Match the CSS: narrow screens AND wide-landscape phones (short height).
+  const MOBILE_Q = '(max-width: 900px), (orientation: landscape) and (max-height: 600px)';
   const isMobile = () => window.matchMedia(MOBILE_Q).matches;
 
   // ---------------- panel drawer ----------------
