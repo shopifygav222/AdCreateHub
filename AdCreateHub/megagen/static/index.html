@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MegaGen — mega bulk generator</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⚡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header id="topbar">
+  <h1 class="app-title">⚡ MegaGen</h1>
+
+  <div class="proj-wrap">
+    <select id="project-select" title="Project — where this list's media lives"></select>
+    <button class="icon-btn" id="btn-new-project" title="New project">＋</button>
+    <button class="icon-btn" id="btn-open-folder" title="Open this project's folder">📁</button>
+    <button class="icon-btn danger" id="btn-del-project" title="Delete project">🗑</button>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab" data-tab="images">Images</button>
+    <button class="tab" data-tab="videos">Videos</button>
+  </div>
+
+  <div id="topstats"></div>
+  <button class="btn ghost" id="btn-guide">Guide</button>
+  <button class="btn ghost" id="btn-settings">⚙ Settings</button>
+</header>
+
+<main id="body">
+  <aside id="panel">
+    <div id="panel-inner">
+      <!-- Prompts -->
+      <section class="panel-sec">
+        <div class="sec-head">
+          <h2 id="prompts-title">Prompts — 0</h2>
+          <div class="sec-actions">
+            <button class="btn sm" id="btn-import-txt">Import .txt</button>
+            <button class="btn sm" id="btn-paste">Paste</button>
+            <button class="btn sm ghost" id="btn-clear-prompts" title="Remove every prompt from this list">Clear all</button>
+          </div>
+        </div>
+        <input type="file" id="file-txt" accept=".txt,text/plain" hidden>
+        <div id="parse-msgs"></div>
+        <div class="dropzone hidden" id="dz-prompts">Drop a .txt prompt list here</div>
+        <div id="prompt-list" class="prompt-list"></div>
+        <div class="empty-sec" id="prompts-empty">No prompts yet — Import .txt or Paste a numbered list.</div>
+      </section>
+
+      <!-- References (Images tab) -->
+      <section class="panel-sec" id="sec-refs">
+        <div class="sec-head">
+          <h2 id="refs-title">References — 0</h2>
+          <div class="sec-actions">
+            <button class="btn sm" id="btn-add-refs">Add references</button>
+            <button class="btn sm ghost" id="btn-clear-refs" title="Delete every reference image">Clear all</button>
+          </div>
+        </div>
+        <input type="file" id="file-refs" accept=".png,.jpg,.jpeg,.webp" multiple hidden>
+        <div class="dropzone" id="dz-refs">Drop images named 7.png / 7-2.png</div>
+        <div id="ref-list" class="ref-list"></div>
+      </section>
+
+      <!-- Start frames (Videos tab) -->
+      <section class="panel-sec" id="sec-frames">
+        <div class="sec-head">
+          <h2 id="frames-title">Start frames — 0</h2>
+          <div class="sec-actions">
+            <button class="btn sm" id="btn-add-frames">Add frames</button>
+            <button class="btn sm ghost" id="btn-clear-frames" title="Delete every start frame">Clear all</button>
+          </div>
+        </div>
+        <input type="file" id="file-frames" accept=".png,.jpg,.jpeg,.webp" multiple hidden>
+        <div class="dropzone" id="dz-frames">Drop start frames named 12.png — one per prompt</div>
+        <div id="frame-list" class="frame-list"></div>
+        <div id="match-summary" class="match-summary"></div>
+      </section>
+    </div>
+  </aside>
+  <button id="panel-toggle" title="Collapse panel">⟨</button>
+
+  <section id="stage">
+    <div id="view-wrap">
+      <button class="btn sm ghost" id="btn-view">View ▾</button>
+      <div id="view-pop" class="pop hidden">
+        <label class="pop-row">Columns
+          <input type="range" id="grid-cols" min="3" max="10" step="1">
+          <span id="grid-cols-val" class="mono">6</span>
+        </label>
+        <label class="pop-row check">
+          <input type="checkbox" id="hover-previews-view"> Hover previews for videos
+        </label>
+      </div>
+    </div>
+
+    <div id="grid-scroll" tabindex="0">
+      <div id="grid"></div>
+      <div id="lasso" class="hidden"></div>
+    </div>
+    <div id="stage-empty" class="stage-empty hidden"></div>
+
+    <div id="selbar" class="hidden">
+      <span id="selcount" class="mono">0 selected</span>
+      <button class="btn sm danger" id="btn-sel-delete">Delete</button>
+      <button class="btn sm ghost" id="btn-sel-clear">Clear</button>
+    </div>
+  </section>
+</main>
+
+<footer id="genbar">
+  <div class="gen-controls" id="gen-controls"></div>
+  <div class="gen-right">
+    <div id="gen-note"></div>
+    <div id="gen-cost" class="mono"></div>
+    <button class="btn primary big" id="btn-generate">⚡ Generate</button>
+  </div>
+</footer>
+
+<div id="runs"></div>
+<div id="toasts"></div>
+
+<!-- ---------- overlays ---------- -->
+<div id="paste-modal" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>Paste your numbered prompt list</h3><button class="icon-btn close">✕</button></div>
+    <div class="modal-body">
+      <p class="hint">One prompt per number — <code>1. text</code>, <code>1) text</code>, <code>1: text</code> or <code>1 - text</code>. Extra lines belong to the prompt above them.</p>
+      <textarea id="paste-text" spellcheck="false" placeholder="1. A neon fox in the rain&#10;2. Same fox, @1 as the style reference"></textarea>
+      <div id="paste-msgs"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost close">Cancel</button>
+      <button class="btn primary" id="btn-parse-save">Parse &amp; save</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-modal" class="overlay hidden">
+  <div class="modal confirm-card">
+    <div class="modal-body"><p id="confirm-text"></p></div>
+    <div class="modal-foot">
+      <button class="btn ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn danger" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="prompt-modal" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head"><h3 id="prompt-modal-title">New project</h3><button class="icon-btn close">✕</button></div>
+    <div class="modal-body"><input type="text" id="prompt-modal-input" maxlength="60" spellcheck="false"></div>
+    <div class="modal-foot">
+      <button class="btn ghost close">Cancel</button>
+      <button class="btn primary" id="prompt-modal-ok">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="edit-modal" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>✏️ Edit &amp; generate next to it</h3><button class="icon-btn close">✕</button></div>
+    <div class="modal-body">
+      <div class="edit-src">
+        <img id="edit-thumb" alt="">
+        <div class="edit-src-info">
+          <div><span class="tile-badge-inline" id="edit-badge">#0</span> <span id="edit-name" class="mono"></span></div>
+          <div id="edit-meta" class="hint"></div>
+        </div>
+      </div>
+      <p class="hint" id="edit-refs-note"></p>
+      <label class="edit-label">Prompt</label>
+      <textarea id="edit-text" spellcheck="false"></textarea>
+      <div id="edit-msgs"></div>
+      <div class="edit-row" id="edit-outputs-row">
+        <span>Outputs</span>
+        <select id="edit-outputs"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select>
+        <span id="edit-cost" class="mono"></span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost close">Cancel</button>
+      <button class="btn primary" id="btn-edit-go">⚡ Generate 1 next to it</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-modal" class="overlay hidden">
+  <div class="modal wide">
+    <div class="modal-head"><h3>⚙ Settings</h3><button class="icon-btn close">✕</button></div>
+    <div class="modal-body scroll">
+
+      <h4>☁ Google Cloud accounts</h4>
+      <p class="hint">Each account is one Google Cloud project. MegaGen spreads every
+        run across all of them, so a project that hits its per-minute limit doesn't
+        stall the batch — the work moves to the next one.</p>
+      <div id="accounts-list"></div>
+      <div class="row-btns">
+        <button class="btn sm" id="btn-add-account">＋ Add account</button>
+      </div>
+
+      <h4>⚡ Performance</h4>
+      <label class="slider-row">Images generated at the same time
+        <input type="range" id="set-workers" min="1" max="8" step="1">
+        <span id="set-workers-val" class="mono">3</span>
+      </label>
+      <p class="hint">Generating 10 images? At 3, the app asks Google for 3 at once and feeds
+        in the rest as each finishes — about 3× faster than one-by-one. Higher can be faster
+        still, but Google may refuse with "rate limit" errors. 3 is a safe default.</p>
+      <p class="hint mono" id="capacity-line"></p>
+      <label class="check-row">
+        <input type="checkbox" id="set-hover-previews"> Hover previews for videos
+      </label>
+      <p class="hint">Builds small silent preview clips in the background — turn off to save disk/CPU.</p>
+
+      <h4>🗑 Trash <span id="trash-count-badge" class="badge">0</span></h4>
+      <p class="hint">Deleted items land here. Tap to select · double-click to view it
+        fullscreen. Restore puts it back into the open project.</p>
+      <div id="trash-gallery" class="trash-gallery"></div>
+      <div class="row-btns">
+        <button class="btn sm" id="btn-trash-restore">↩ Restore</button>
+        <button class="btn sm danger" id="btn-trash-purge">Delete forever</button>
+        <button class="btn sm ghost" id="btn-trash-empty">Empty trash</button>
+      </div>
+      <div id="trash-confirm" class="inline-confirm hidden">
+        <span>Delete everything in the trash for good?</span>
+        <button class="btn sm danger" id="btn-trash-empty-yes">Yes, empty it</button>
+        <button class="btn sm ghost" id="btn-trash-empty-no">Cancel</button>
+      </div>
+
+      <h4>💳 Spend tracker</h4>
+      <div id="stat-cards" class="stat-cards"></div>
+      <p class="hint">Estimates use list prices — images: 1K $0.067 · 2K $0.101 · 4K $0.151 each ·
+        videos are billed per second: Veo 3.1 $0.40 · 3.1 Fast $0.15 · 3.1 Lite $0.05 ·
+        Veo 3 $0.40 · 3 Fast $0.15 · Veo 2 $0.50 · Omni Flash ≈$0.10. Vertex prices
+        may differ slightly. Your real balance:
+        <a href="https://console.cloud.google.com/billing" target="_blank">Cloud billing → Credits</a></p>
+      <div class="row-btns"><button class="btn sm ghost" id="btn-reset-usage">Reset spend tracker</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="guide-modal" class="overlay hidden">
+  <div class="modal wide">
+    <div class="modal-head"><h3>Setup guide</h3><button class="icon-btn close">✕</button></div>
+    <div class="modal-body scroll guide">
+      <h2>🚀 One-time setup — about 5 minutes</h2>
+      <p>The app runs on your <b>Google Cloud $300 free trial</b>. You only do this once.</p>
+      <hr>
+      <h3>Step 1 · Copy your Project ID</h3>
+      <p>Open <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a>. At the very top of the page,
+      click the <b>project name</b> (next to the "Google Cloud" logo). A window pops up with a list —
+      copy the value in the <b>ID</b> column (looks like <code>banana-app-448212</code>, letters and dashes, not just numbers).</p>
+
+      <h3>Step 2 · Turn on the image API</h3>
+      <p>Click here: <a href="https://console.cloud.google.com/apis/library/aiplatform.googleapis.com" target="_blank">enable the API</a>
+      and press the big blue <b>Enable</b> button. If it already says <i>"API Enabled"</i>, skip ahead.</p>
+
+      <h3>Step 3 · Install Google's sign-in tool</h3>
+      <p>Download the <b>Google Cloud CLI</b> installer: <a href="https://cloud.google.com/sdk/docs/install" target="_blank">cloud.google.com/sdk/docs/install</a>.
+      Run it and just click <b>Next</b> through everything (all defaults are fine).</p>
+
+      <h3>Step 4 · Sign in — one time only</h3>
+      <p>Press the <b>Windows key</b>, type <code>cmd</code>, press <b>Enter</b>. In the black window, paste this and press Enter:</p>
+      <pre>gcloud auth application-default login</pre>
+      <p>Your browser opens — <b>sign in with the same Google account</b> that has the free trial, and click Allow.
+      When it says success, you can close the black window.</p>
+
+      <h3>Step 5 · Connect this app</h3>
+      <p>Open <b>⚙ Settings</b> at the top of the app → paste your <b>Project ID</b> → <b>Save</b> → <b>Test connection</b>.</p>
+      <p>✅ Green message = you're done. Close this guide and start generating!</p>
+      <hr>
+      <h3>😵 If Test connection fails</h3>
+      <ul>
+        <li><i>"quota project"</i> error → back in the black window, run
+          <code>gcloud auth application-default set-quota-project YOUR-PROJECT-ID</code> (use your real ID)</li>
+        <li><i>403 / permission</i> error → redo <b>Step 2</b>, wait 2 minutes, test again</li>
+        <li><i>"gcloud not recognized"</i> → finish <b>Step 3</b>, then open a <b>new</b> cmd window for <b>Step 4</b></li>
+      </ul>
+      <hr>
+      <h3>➕ Adding a second project (more quota)</h3>
+      <p>Google limits how many images or clips one project can make per minute. A second
+      project is a second, separate limit — MegaGen spreads every run across all the
+      accounts you add, so hitting a limit on one no longer stalls the batch.</p>
+      <ul>
+        <li>In <a href="https://console.cloud.google.com/projectcreate" target="_blank">the Cloud console</a>
+          create a new project, then <a href="https://console.cloud.google.com/apis/library/aiplatform.googleapis.com" target="_blank">enable the API</a> on it (Step 2 again, for the new project).</li>
+        <li>⚙ Settings → <b>＋ Add account</b> → paste the new Project ID → <b>Test</b>.</li>
+        <li>No second sign-in is needed — your existing <code>gcloud</code> login already covers
+          every project you own.</li>
+        <li><b>It doubles your speed, not your money.</b> The $300 trial belongs to your
+          billing account, not to a project, so a second project on the same account shares
+          the same $300. That's why new accounts start with a credit of <b>$0</b> — set it
+          only if that project really bills separately.</li>
+      </ul>
+      <hr>
+      <h3>🖼 The Images tab</h3>
+      <ul>
+        <li><b>Import .txt</b> or <b>Paste</b> a numbered list — <code>1. text</code>, <code>1) text</code>,
+          <code>1: text</code> or <code>1 - text</code>. Extra lines belong to the prompt above them.</li>
+        <li>You can also <b>drag a .txt straight onto the left panel</b> to import it, and <b>Clear all</b> wipes the prompt list or every reference in one click (with a confirm).</li>
+        <li><b>References</b> bind to prompts by filename: <code>7.png</code> is prompt 7's reference 1,
+          <code>7-2.png</code> is prompt 7's reference 2 (up to 6 per prompt).</li>
+        <li>Inside prompt 7's text, <code>@1</code> and <code>@2</code> mean <i>that prompt's</i> references.
+          All of a prompt's references are sent whether or not the text tags them.</li>
+        <li><b>Outputs per prompt</b> is 1–10. One press of Generate runs every prompt in number order.</li>
+        <li>Files land in <code>output/&lt;Project&gt;/images</code> as <code>7-gav482913.png</code>.</li>
+      </ul>
+
+      <h3>🎬 The Videos tab</h3>
+      <ul>
+        <li>Drop <b>start frames</b> named by prompt number — <code>12.png</code> is prompt 12's first frame.
+          One frame per prompt.</li>
+        <li>Prompts <b>without</b> a frame are skipped (MegaGen never does text-to-video) and the panel says which.</li>
+        <li><b>Outputs per prompt</b> is 1–3. Files land in <code>output/&lt;Project&gt;/videos</code> as <code>7Vid-gav482913.mp4</code>.</li>
+        <li>Ratio must be <b>16:9</b> or <b>9:16</b>.</li>
+        <li>Videos take <b>1–5 minutes each</b>. The run card keeps counting while Google works —
+          leave the app open and clips drop into the grid when ready.</li>
+        <li><b>Videos are billed per second</b>, not per clip (estimates): Veo 3.1 $0.40 · 3.1 Fast $0.15 ·
+          3.1 Lite $0.05 · Veo 3 $0.40 · 3 Fast $0.15 · Veo 2 $0.50 (no sound) · Omni Flash ≈ $0.10.
+          An 8-second Veo 3.1 clip ≈ <b>$3.20</b> — Veo 3.1 Lite is great for trying prompts cheaply
+          (≈ $0.40 per 8s clip).</li>
+        <li><b>Omni Flash is brand-new (preview).</b> If it errors with <i>"isn't switched on for Vertex"</i>,
+          Google hasn't enabled it for Vertex projects yet — use a Veo model until they do.</li>
+        <li><b>Omni Flash has no Seconds control</b> — it always decides its own clip length
+          (around 10s) instead of a fixed number you pick. Every other video model still lets
+          you choose the exact length.</li>
+        <li>Seeing <i>quota</i> or <i>rate limit</i> errors? Videos have much tighter limits than images —
+          the app already caps video jobs at 2 at a time; just wait a minute and try again.</li>
+      </ul>
+      <hr>
+      <h3>⌨️ Cheatsheet — everything the mouse &amp; keyboard can do</h3>
+      <ul>
+        <li><b>Ctrl+Enter</b> anywhere = press Generate · runs stack, media appears live</li>
+        <li><b>Click</b> a tile → fullscreen viewer: <b>←/→</b> browse, <b>Del</b> deletes, <b>Esc</b> closes,
+          wheel zooms, double-click toggles 2.5×</li>
+        <li><b>Videos in the viewer:</b> Space play/pause · M mute · F fullscreen · drag the bar
+          to seek — <b>←/→</b> still switch between items</li>
+        <li><b>Ctrl+click</b> toggles selection, <b>Shift+click</b> selects a range, <b>drag</b> a box on empty
+          grid space to lasso, <b>Ctrl+A</b> selects all, <b>Esc</b> clears</li>
+        <li><b>Del</b> deletes the selection (2 or more asks for confirmation first)</li>
+        <li><b>Ctrl+C</b> with one image selected copies it to the clipboard</li>
+        <li>Hover any tile for quick actions: 🔄 regenerate · ✨ new · ✏️ edit · 📋 copy · 🗑 delete</li>
+        <li><b>✏️ Edit</b> a tile (or the pencil in fullscreen) = tweak that item's prompt and generate fresh takes right next to it — same model, settings and references; images let you pick 1–10 outputs.</li>
+        <li>Deleted things always land in <code>output/.trash</code> — recoverable, never destroyed</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox" class="hidden">
+  <div class="lb-actions">
+    <button class="icon-btn" data-lb="regen" title="Regenerate — replace this one">🔄</button>
+    <button class="icon-btn" data-lb="new" title="New — same generation, added next to it">✨</button>
+    <button class="icon-btn" data-lb="edit" title="Edit prompt — generate a new one next to it">✏️</button>
+    <button class="icon-btn" data-lb="copy" title="Copy">📋</button>
+    <button class="icon-btn" data-lb="download" title="Download">⤓</button>
+    <button class="icon-btn danger" data-lb="delete" title="Delete">🗑</button>
+    <button class="icon-btn" data-lb="close" title="Close">✕</button>
+  </div>
+  <div class="lb-stage">
+    <img class="lb-img" alt="">
+    <div class="lb-player hidden">
+      <video class="lb-vid" preload="auto" playsinline></video>
+      <div class="vp-center hidden">▶</div>
+      <div class="vp-bar">
+        <div class="vp-seek"><div class="vp-buf"></div><div class="vp-fill"></div><div class="vp-knob"></div></div>
+        <div class="vp-row">
+          <button class="vp-btn vp-play" title="Play / pause (Space)">▶</button>
+          <span class="vp-time mono">0:00 / 0:00</span>
+          <div class="vp-flex"></div>
+          <button class="vp-btn vp-mute" title="Mute (M)">🔊</button>
+          <input class="vp-vol" type="range" min="0" max="1" step="0.05" title="Volume">
+          <button class="vp-btn vp-fs" title="Fullscreen (F)">⛶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="lb-caption"><span class="lb-badge"></span><span class="lb-name"></span><span class="lb-prompt"></span></div>
+  <div class="lb-spinner hidden"><i></i><span>regenerating…</span></div>
+</div>
+
+<div id="trash-view" class="hidden">
+  <div class="tv-actions">
+    <button class="icon-btn" data-tv="restore" title="Restore to the open project">↩</button>
+    <button class="icon-btn danger" data-tv="purge" title="Delete forever">🗑</button>
+    <button class="icon-btn" data-tv="close" title="Close">✕</button>
+  </div>
+  <button class="tv-nav prev" data-tv="prev" title="Previous">‹</button>
+  <div class="tv-stage">
+    <img class="tv-img" alt="">
+    <video class="tv-vid hidden" controls preload="metadata"></video>
+  </div>
+  <button class="tv-nav next" data-tv="next" title="Next">›</button>
+  <div class="tv-caption"><span class="tv-name mono"></span><span class="tv-proj"></span></div>
+</div>
+
+<script src="/static/grid.js"></script>
+<script src="/static/lightbox.js"></script>
+<script src="/static/settings.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

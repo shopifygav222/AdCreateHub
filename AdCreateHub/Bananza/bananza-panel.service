@@ -1,0 +1,16 @@
+[Unit]
+Description=Bananza remote control panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/bananza
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/bananza/gcp-key.json
+ExecStart=/home/ubuntu/bananza/venv/bin/python /home/ubuntu/bananza/controller.py
+Restart=always
+RestartSec=5
+Environment=BANANA_AUTH=gav:minion01
+
+[Install]
+WantedBy=multi-user.target

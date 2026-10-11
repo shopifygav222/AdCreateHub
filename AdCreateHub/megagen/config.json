@@ -1,0 +1,26 @@
+{
+ "last_tab": "videos",
+ "vid": {
+  "model": "Omni Flash · video",
+  "aspect": "16:9",
+  "res": "720p",
+  "dur": null,
+  "audio": true,
+  "outputs": 1
+ },
+ "project": "veo3-502100",
+ "location": "global",
+ "last_project": "DurVisualTest",
+ "workers": 3,
+ "accounts": [
+  {
+   "id": "acc1",
+   "label": "Main",
+   "project": "veo3-502100",
+   "location": "global",
+   "auth": "adc",
+   "enabled": true,
+   "credit": 300.0
+  }
+ ]
+}
