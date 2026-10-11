@@ -5253,10 +5253,9 @@ def _adch_build_head():
     try:
         if icon_path.exists():
             data = _b64.b64encode(icon_path.read_bytes()).decode("ascii")
+            # Only the home-screen icon — leave Gradio's own browser-tab favicon alone.
             icon_tag = (
                 f'<link rel="apple-touch-icon" sizes="180x180" '
-                f'href="data:image/png;base64,{data}">\n'
-                f'<link rel="icon" type="image/png" '
                 f'href="data:image/png;base64,{data}">\n'
                 '<meta name="apple-mobile-web-app-title" content="Bananza">\n'
                 '<meta name="apple-mobile-web-app-capable" content="yes">\n'
