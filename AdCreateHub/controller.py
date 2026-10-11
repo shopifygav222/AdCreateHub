@@ -413,22 +413,21 @@ PAGE_HTML = r"""<!DOCTYPE html>
   html, body { height: 100%; }
   body {
     display: flex; align-items: flex-start; justify-content: center;
-    background: var(--bg); color: var(--ink);
+    color: var(--ink);
+    /* Aurora baked into the body as static radial gradients — looks like the
+       old blurred-orb layout but has zero GPU cost (no filter, no animation,
+       no composite layer for the huge blurred shapes). */
+    background:
+      radial-gradient(620px 620px at -10% -10%, rgba(139, 92, 246, .28), transparent 62%),
+      radial-gradient(540px 540px at 110% 110%, rgba(251, 191, 36, .12), transparent 62%),
+      var(--bg);
+    background-attachment: fixed;
     padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px
              calc(env(safe-area-inset-bottom, 0px) + 20px);
     font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
     overflow-x: hidden; position: relative;
     min-height: 100%;
   }
-  /* Aurora background */
-  .orb { position: fixed; border-radius: 50%; filter: blur(90px); opacity: .32;
-         pointer-events: none; z-index: 0; }
-  .orb.a { width: 480px; height: 480px; background: var(--violet);
-           top: -140px; left: -120px; animation: drifta 26s ease-in-out infinite alternate; }
-  .orb.b { width: 420px; height: 420px; background: var(--banana); opacity: .14;
-           bottom: -160px; right: -120px; animation: driftb 32s ease-in-out infinite alternate; }
-  @keyframes drifta { to { transform: translate(70px, 60px); } }
-  @keyframes driftb { to { transform: translate(-80px, -50px); } }
 
   /* The outer frame — one column on mobile, two cards on wider screens */
   .wrap { position: relative; z-index: 1; width: 100%; max-width: 820px; }
@@ -447,9 +446,16 @@ PAGE_HTML = r"""<!DOCTYPE html>
 
   .card {
     text-align: center;
-    background: var(--card); border: 1px solid var(--edge);
-    border-radius: 24px; padding: 28px 20px 22px; backdrop-filter: blur(16px);
+    background: rgba(23, 19, 33, .72);                /* opaque enough to skip backdrop-filter */
+    border: 1px solid var(--edge);
+    border-radius: 24px; padding: 28px 20px 22px;
     box-shadow: 0 20px 54px rgba(0,0,0,.5);
+    contain: layout paint style;                      /* isolate each card's paint tree */
+  }
+  @media (hover: hover) and (pointer: fine) {
+    /* Only desktops with a real GPU budget get the backdrop blur. Mobile/
+       tablet skip it — opaque bg above already matches the look. */
+    .card { background: var(--card); backdrop-filter: blur(16px); }
   }
   .card h2 {
     font-family: Outfit, Inter, sans-serif; font-weight: 800;
@@ -534,9 +540,14 @@ PAGE_HTML = r"""<!DOCTYPE html>
   /* Password gate */
   .gate {
     max-width: 400px; margin: 20vh auto 0; text-align: center;
-    background: var(--card); border: 1px solid var(--edge);
-    border-radius: 24px; padding: 32px 22px 24px; backdrop-filter: blur(16px);
+    background: rgba(23, 19, 33, .72);
+    border: 1px solid var(--edge);
+    border-radius: 24px; padding: 32px 22px 24px;
     box-shadow: 0 20px 54px rgba(0,0,0,.5);
+    contain: layout paint style;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .gate { background: var(--card); backdrop-filter: blur(16px); }
   }
   .gatetext { font-size: 13.5px; color: var(--muted); margin: 4px 0 18px; }
   .gate input {
@@ -607,13 +618,12 @@ PAGE_HTML = r"""<!DOCTYPE html>
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .orb, .ringspin, .card.st-online .ringwrap { animation: none !important; }
+    .ringspin, .card.st-online .ringwrap { animation: none !important; }
     .card.st-online .ringwrap { box-shadow: 0 0 44px rgba(52,211,153,.45); }
   }
 </style>
 </head>
 <body>
-<div class="orb a"></div><div class="orb b"></div>
 
 <div class="gate" id="gate" style="display:none">
   <div class="brand" style="margin-bottom: 14px;">
@@ -674,6 +684,15 @@ PAGE_HTML = r"""<!DOCTYPE html>
 <script>
 var KEY = new URLSearchParams(location.search).get("key") || localStorage.getItem("adch_key") || "";
 var unlocked = false, busy = {}, confirming = {}, cards = {};
+// Last rendered snapshot per card, used by renderOne to skip DOM writes
+// when nothing actually changed between polls.
+var lastRender = {};
+// Keep the most recent /api/status payload so toggle actions (like the
+// confirm-stop panel) can re-render instantly without a round-trip.
+var lastStatus = null;
+// in-flight guard so overlapping refreshes don't stack up
+var fetchInFlight = false;
+var pollTimer = null;
 
 function el(id){ return document.getElementById(id); }
 
@@ -760,39 +779,69 @@ function renderAll(s){
 function renderOne(a){
   var card = cards[a.key];
   if (!card) return;
-  card.className = "card st-" + a.state;
+
+  // Compute the derived view model and compare against last tick — skip the
+  // whole paint if nothing a human would notice has changed. This cuts the
+  // steady-state cost of polling to a single fetch.
+  var uptimeStr = (a.state === "online") ? fmtUptime(a.uptime) : "";
+  var confirmNow = (a.state === "online") && !!confirming[a.key];
+  var disabled = !!busy[a.key] || a.state === "starting" || a.state === "stopping";
+  var fingerprint = [
+    a.state, a.port, uptimeStr, confirmNow, disabled,
+    a.error || "", (a.log || []).join("|"),
+  ].join("\x1f");
+  if (lastRender[a.key] === fingerprint) return;
+  lastRender[a.key] = fingerprint;
+
   var q = function(sel){ return card.querySelector('[data-el="' + sel + '"]'); };
   var word = q("statusword"), hint = q("hint"), power = q("power");
-  q("linkcard").classList.remove("show");
-  q("errcard").classList.remove("show");
-  if (a.state !== "online") { confirming[a.key] = false; q("confirm").classList.remove("show"); }
-  power.disabled = !!busy[a.key];
+
+  // className has strong effects (restyles the whole card), so only set it
+  // when the state class actually needs to change.
+  var want = "card st-" + a.state;
+  if (card.className !== want) card.className = want;
+
+  var linkcard = q("linkcard");
+  var errcard  = q("errcard");
+  var confirmBox = q("confirm");
+
+  linkcard.classList.toggle("show", a.state === "online");
+  errcard.classList.toggle("show", a.state === "error");
+  confirmBox.classList.toggle("show", confirmNow);
+  if (power.disabled !== disabled) power.disabled = disabled;
 
   if (a.state === "offline") {
-    word.textContent = "Offline";
-    hint.textContent = "Tap the power button to start " + a.name + ".";
+    if (word.textContent !== "Offline") word.textContent = "Offline";
+    var h = "Tap the power button to start " + a.name + ".";
+    if (hint.textContent !== h) hint.textContent = h;
   } else if (a.state === "starting") {
-    word.textContent = "Waking up…";
-    hint.textContent = "Starting " + a.name + ". This page updates by itself — first start can take a couple of minutes.";
-    power.disabled = true;
+    if (word.textContent !== "Waking up…") word.textContent = "Waking up…";
+    var h1 = "Starting " + a.name + ". This page updates by itself — first start can take a couple of minutes.";
+    if (hint.textContent !== h1) hint.textContent = h1;
   } else if (a.state === "online") {
-    word.textContent = "Online";
-    hint.textContent = confirming[a.key] ? "Stop " + a.name + "? Anything mid-generation will be lost."
-                                         : "Running for " + fmtUptime(a.uptime) + ".";
-    q("confirm").classList.toggle("show", !!confirming[a.key]);
-    q("openlink").href = appUrl(a.port);
-    q("openlink").textContent = "Open " + a.name;
-    q("linkcard").classList.add("show");
+    if (word.textContent !== "Online") word.textContent = "Online";
+    var h2 = confirmNow
+      ? "Stop " + a.name + "? Anything mid-generation will be lost."
+      : "Running for " + uptimeStr + ".";
+    if (hint.textContent !== h2) hint.textContent = h2;
+    var url = appUrl(a.port);
+    var link = q("openlink");
+    if (link.getAttribute("href") !== url) link.href = url;
+    var lbl = "Open " + a.name;
+    if (link.textContent !== lbl) link.textContent = lbl;
   } else if (a.state === "stopping") {
-    word.textContent = "Stopping…";
-    hint.textContent = "Shutting " + a.name + " down cleanly.";
-    power.disabled = true;
+    if (word.textContent !== "Stopping…") word.textContent = "Stopping…";
+    var h3 = "Shutting " + a.name + " down cleanly.";
+    if (hint.textContent !== h3) hint.textContent = h3;
   } else if (a.state === "error") {
-    word.textContent = "Problem";
-    hint.textContent = "Tap the power button to try again.";
-    q("errtext").textContent = a.error || "Something went wrong.";
-    q("errlog").textContent = (a.log || []).join("\n");
-    q("errcard").classList.add("show");
+    if (word.textContent !== "Problem") word.textContent = "Problem";
+    var h4 = "Tap the power button to try again.";
+    if (hint.textContent !== h4) hint.textContent = h4;
+    var et = a.error || "Something went wrong.";
+    var el = (a.log || []).join("\n");
+    var errText = q("errtext"), errLog = q("errlog");
+    if (errText.textContent !== et) errText.textContent = et;
+    if (errLog.textContent !== el) errLog.textContent = el;
   }
 }
 
@@ -843,27 +892,44 @@ function showUpdateToast(u) {
 }
 
 async function refresh(){
-  if (!unlocked) return;
+  if (!unlocked || fetchInFlight) return;
+  fetchInFlight = true;
   try {
     var s = await apiGet("/api/status");
+    lastStatus = s;
     buildCards(s.apps);
     renderAll(s);
     noteUpdate(s.last_update);
   }
   catch(e){
     if (e.message === "401") { localStorage.removeItem("adch_key"); showGate("Session ended — enter your password."); }
-    else { Object.keys(cards).forEach(function(k){
-      cards[k].querySelector('[data-el="statusword"]').textContent = "No connection";
-      cards[k].querySelector('[data-el="hint"]').textContent = "Can't reach the server — retrying…";
-    }); }
+    else {
+      // Mark cards as disconnected but still diff — only the "No connection"
+      // text should be rewritten, not the whole card.
+      Object.keys(cards).forEach(function(k){
+        var card = cards[k];
+        var w = card.querySelector('[data-el="statusword"]');
+        var h = card.querySelector('[data-el="hint"]');
+        if (w.textContent !== "No connection") w.textContent = "No connection";
+        var msg = "Can't reach the server — retrying…";
+        if (h.textContent !== msg) h.textContent = msg;
+        // bust the diff cache so the next successful tick rewrites fully
+        lastRender[k] = "";
+      });
+    }
   }
+  finally { fetchInFlight = false; }
 }
 
 async function powerPressed(key){
   if (busy[key]) return;
   var card = cards[key];
   var state = card.className.replace("card st-", "").split(" ")[0];
-  if (state === "online") { confirming[key] = !confirming[key]; refresh(); return; }
+  if (state === "online") {
+    confirming[key] = !confirming[key];
+    if (lastStatus) renderAll(lastStatus);          // instant toggle, no round-trip
+    return;
+  }
   if (state === "offline" || state === "error") {
     busy[key] = true;
     card.querySelector('[data-el="power"]').disabled = true;
@@ -876,6 +942,7 @@ async function powerPressed(key){
 async function confirmStop(key, yes){
   confirming[key] = false;
   if (yes) { try { await apiPost("/api/" + encodeURIComponent(key) + "/stop"); } catch(e){} }
+  else if (lastStatus) { renderAll(lastStatus); return; }   // "keep running" = pure UI
   refresh();
 }
 
@@ -914,12 +981,31 @@ function copyLink(port, btn){
     el("panel").style.display = "block";
     buildCards(s.apps);
     renderAll(s);
+    noteUpdate(s.last_update);
   } catch(e) {
     localStorage.removeItem("adch_key");
     showGate("");
   }
+  startPolling();
 })();
-setInterval(refresh, 2500);
+
+function startPolling(){
+  function schedule(){
+    clearTimeout(pollTimer);
+    // 3s when visible; pause entirely when the tab is backgrounded.
+    if (document.hidden) return;
+    pollTimer = setTimeout(tick, 3000);
+  }
+  async function tick(){
+    await refresh();
+    schedule();
+  }
+  schedule();
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden) { refresh(); schedule(); }
+    else { clearTimeout(pollTimer); }
+  });
+}
 </script>
 </body>
 </html>
