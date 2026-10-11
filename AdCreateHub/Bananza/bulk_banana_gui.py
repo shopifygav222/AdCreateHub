@@ -5243,7 +5243,29 @@ _im = VIDEO_MODELS.get(_initial_vid_model, {})
 _initial_omni = _im.get("kind") == "omni"
 _initial_veo2 = _im.get("id", "").startswith("veo-2")
 
-_ADCH_PENDING_HEAD = """<script>
+def _adch_build_head():
+    """<head> inject for Bananza when served under AdCreateHub: a pending-update
+    banner loaded from the hub, plus an inline apple-touch-icon so saving the
+    page to an iPhone home screen uses the branded banana glyph."""
+    import base64 as _b64
+    icon_path = Path(__file__).resolve().parent / "icons" / "icon-180.png"
+    icon_tag = ""
+    try:
+        if icon_path.exists():
+            data = _b64.b64encode(icon_path.read_bytes()).decode("ascii")
+            icon_tag = (
+                f'<link rel="apple-touch-icon" sizes="180x180" '
+                f'href="data:image/png;base64,{data}">\n'
+                f'<link rel="icon" type="image/png" '
+                f'href="data:image/png;base64,{data}">\n'
+                '<meta name="apple-mobile-web-app-title" content="Bananza">\n'
+                '<meta name="apple-mobile-web-app-capable" content="yes">\n'
+                '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n'
+                '<meta name="theme-color" content="#f5a623">\n'
+            )
+    except Exception:
+        pass
+    pending = """<script>
   (function () {
     var s = document.createElement('script');
     s.src = location.protocol + '//' + location.hostname + ':8000/pending-banner.js';
@@ -5251,6 +5273,9 @@ _ADCH_PENDING_HEAD = """<script>
     document.head.appendChild(s);
   })();
 </script>"""
+    return icon_tag + pending
+
+_ADCH_PENDING_HEAD = _adch_build_head()
 
 with gr.Blocks(title="Bananza 🍌 — Nano Banana bulk generator",
                head=_ADCH_PENDING_HEAD) as demo:

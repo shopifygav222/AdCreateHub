@@ -25,7 +25,7 @@ import urllib.request
 from collections import deque
 from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 # ----------------------------------------------------------------------------
 # SETTINGS
@@ -341,6 +341,37 @@ _PENDING_BANNER_JS = r"""/* adcreatehub pending-update banner */
 """
 
 
+ICONS_DIR = BASE_DIR / "icons"
+
+
+@app.get("/icons/<path:name>")
+def icons(name):
+    resp = send_from_directory(ICONS_DIR, name)
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+@app.get("/manifest.json")
+def manifest():
+    return jsonify({
+        "name": "AdCreateHub",
+        "short_name": "AdCreateHub",
+        "description": "Remote control for Bananza & MegaGen",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#0e0b14",
+        "theme_color": "#0e0b14",
+        "icons": [
+            {"src": "/icons/icon-192.png", "sizes": "192x192",
+             "type": "image/png", "purpose": "any"},
+            {"src": "/icons/icon-512.png", "sizes": "512x512",
+             "type": "image/png", "purpose": "any maskable"},
+        ],
+    })
+
+
 @app.get("/")
 def index():
     return PAGE_HTML
@@ -358,7 +389,10 @@ PAGE_HTML = r"""<!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>AdCreateHub Control</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9889;</text></svg>">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-title" content="AdCreateHub">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
