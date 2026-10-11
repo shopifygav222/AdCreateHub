@@ -5243,7 +5243,17 @@ _im = VIDEO_MODELS.get(_initial_vid_model, {})
 _initial_omni = _im.get("kind") == "omni"
 _initial_veo2 = _im.get("id", "").startswith("veo-2")
 
-with gr.Blocks(title="Bananza 🍌 — Nano Banana bulk generator") as demo:
+_ADCH_PENDING_HEAD = """<script>
+  (function () {
+    var s = document.createElement('script');
+    s.src = location.protocol + '//' + location.hostname + ':8000/pending-banner.js';
+    s.async = true;
+    document.head.appendChild(s);
+  })();
+</script>"""
+
+with gr.Blocks(title="Bananza 🍌 — Nano Banana bulk generator",
+               head=_ADCH_PENDING_HEAD) as demo:
 
     queue_state = gr.State([])
     result_sel = gr.State(None)

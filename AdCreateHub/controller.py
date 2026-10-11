@@ -246,6 +246,87 @@ def api_stop(key):
     return jsonify({"ok": True})
 
 
+@app.get("/api/internal/status")
+def api_internal_status():
+    """Localhost-only, no auth. Used by auto-update.sh to decide whether
+    to defer the restart because an app is still running."""
+    if request.remote_addr not in ("127.0.0.1", "::1"):
+        return jsonify({"error": "forbidden"}), 403
+    busy = {"starting", "online", "stopping"}
+    any_running = any(a.snapshot()["state"] in busy for a in APPS.values())
+    return jsonify({"any_running": any_running})
+
+
+# Flag file the auto-updater touches when it defers a restart.
+PENDING_FLAG = BASE_DIR / ".update-pending"
+
+
+def _cors(response):
+    """Both apps load /pending-banner.js from this hub on a different port —
+    the browser treats that as cross-origin, so we send permissive headers.
+    These two endpoints expose only a boolean, no secrets."""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.get("/api/update-pending")
+def api_update_pending():
+    return _cors(jsonify({"pending": PENDING_FLAG.exists()}))
+
+
+@app.get("/pending-banner.js")
+def pending_banner_js():
+    """Tiny self-contained script included by Bananza and MegaGen. Polls the
+    hub every 15 s and shows a floating pill when an update is waiting."""
+    return _cors(app.response_class(_PENDING_BANNER_JS, mimetype="application/javascript"))
+
+
+_PENDING_BANNER_JS = r"""/* adcreatehub pending-update banner */
+(function () {
+  'use strict';
+  var HUB = location.protocol + '//' + location.hostname + ':8000';
+  var banner = null;
+
+  function ensure(show) {
+    if (!show) { if (banner) banner.style.display = 'none'; return; }
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'adch-update-banner';
+      banner.style.cssText =
+        'position:fixed;left:50%;top:max(10px,env(safe-area-inset-top,0px));' +
+        'transform:translateX(-50%);z-index:2147483647;' +
+        'background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a0f04;' +
+        'padding:8px 14px;border-radius:999px;' +
+        'font:600 12.5px/1.3 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;' +
+        'box-shadow:0 10px 28px rgba(0,0,0,.45);' +
+        'display:flex;align-items:center;gap:6px;max-width:92vw;' +
+        'text-align:center;pointer-events:none;letter-spacing:.2px;';
+      banner.innerHTML = '<span style="font-size:14px">⚠</span>' +
+        '<span>Update ready — will apply when this app is stopped</span>';
+      document.body.appendChild(banner);
+    }
+    banner.style.display = 'flex';
+  }
+
+  function check() {
+    fetch(HUB + '/api/update-pending', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) ensure(!!j.pending); })
+      .catch(function () { /* hub unreachable — ignore */ });
+  }
+
+  // first check once the page is ready; then every 15 s
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', check);
+  } else {
+    check();
+  }
+  setInterval(check, 15000);
+})();
+"""
+
+
 @app.get("/")
 def index():
     return PAGE_HTML
