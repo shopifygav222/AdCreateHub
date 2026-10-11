@@ -6,14 +6,16 @@
 
 set -e
 
-REPO_DIR="/home/ubuntu/adcreatehub"
+# Self-locate so one script works for every clone path.
+INNER="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="$(cd "$INNER/.." && pwd)"
 VENV_PIP="$REPO_DIR/venv/bin/pip"
 BRANCH="main"
 LOG="/var/log/adcreatehub-update.log"
 
 cd "$REPO_DIR"
 
-# git needs to know who it's running as inside a cron environment
+# cron runs this as root; git refuses "unsafe" dirs owned by another user
 export HOME=/root
 git config --global --add safe.directory "$REPO_DIR"
 
@@ -34,7 +36,7 @@ git reset --hard "origin/$BRANCH" >> "$LOG" 2>&1
 
 # refresh deps in case requirements.txt or hub needs changed
 if [ -x "$VENV_PIP" ]; then
-  "$VENV_PIP" install -q flask -r megagen/requirements.txt >> "$LOG" 2>&1 || true
+  "$VENV_PIP" install -q flask -r "$INNER/megagen/requirements.txt" >> "$LOG" 2>&1 || true
 fi
 
 # bounce the service so the new code is live
