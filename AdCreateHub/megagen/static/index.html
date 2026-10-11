@@ -24,7 +24,7 @@
   <div class="proj-wrap">
     <select id="project-select" title="Project — where this list's media lives"></select>
     <button class="icon-btn" id="btn-new-project" title="New project">＋</button>
-    <button class="icon-btn" id="btn-open-folder" title="Open this project's folder">📁</button>
+    <button class="icon-btn" id="btn-open-folder" title="Browse &amp; download this project's files">📁</button>
     <button class="icon-btn danger" id="btn-del-project" title="Delete project">🗑</button>
   </div>
 
@@ -125,6 +125,7 @@
 
     <div id="selbar" class="hidden">
       <span id="selcount" class="mono">0 selected</span>
+      <button class="btn sm" id="btn-sel-download" title="Download selected (one file or zip)">⤓ Download</button>
       <button class="btn sm danger" id="btn-sel-delete">Delete</button>
       <button class="btn sm ghost" id="btn-sel-clear">Clear</button>
     </div>
@@ -205,6 +206,31 @@
     <div class="modal-foot">
       <button class="btn ghost close">Cancel</button>
       <button class="btn primary" id="btn-edit-go">⚡ Generate 1 next to it</button>
+    </div>
+  </div>
+</div>
+
+<div id="files-modal" class="overlay hidden">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h3 id="files-modal-title">Project files</h3>
+      <button class="icon-btn close">✕</button>
+    </div>
+    <div class="modal-body scroll">
+      <div class="files-head">
+        <div class="files-info" id="files-info">0 files</div>
+        <div class="files-actions">
+          <button class="btn sm" id="files-sel-all">Select all</button>
+          <button class="btn sm ghost" id="files-sel-none">Clear</button>
+        </div>
+      </div>
+      <div id="files-list" class="files-list"></div>
+      <div class="empty-sec hidden" id="files-empty">No media in this project yet.</div>
+    </div>
+    <div class="modal-foot">
+      <span class="files-selcount mono" id="files-selcount">0 selected</span>
+      <button class="btn ghost" id="files-dl-all">⤓ Download all</button>
+      <button class="btn primary" id="files-dl-sel" disabled>⤓ Download selected</button>
     </div>
   </div>
 </div>

@@ -1,6 +1,9 @@
 """FastAPI app: JSON API, media serving with Range, static frontend."""
 import mimetypes
+import os
+import tempfile
 import time
+import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -12,7 +15,7 @@ from . import gen_engine, projects, prompts as prompts_mod, thumbs, usage
 from .config import (DEFAULT_PROJECT, NOTICES, STATIC_DIR, ensure_dirs, load_config,
                      update_config)
 from .gen_engine import GenError
-from .models_tables import tables_payload
+from .models_tables import IMAGE_EXTS, MEDIA_EXTS, VIDEO_EXTS, tables_payload
 
 app = FastAPI(title="MegaGen", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -119,6 +122,153 @@ def api_project_delete(name: str):
 @app.post("/api/projects/{name}/open_folder")
 def api_project_open(name: str):
     return {"ok": True, "message": projects.open_output_folder(projects.valid_project(name))}
+
+
+def _safe_zip_name(name):
+    """Keep the download name friendly across OSes without surprising renames."""
+    cleaned = "".join(c if c.isalnum() or c in " -_" else "_" for c in name).strip()
+    return (cleaned or "project")[:80]
+
+
+def _collect_media(project, names, tab):
+    """Resolve the list of files to zip.
+    - names: explicit list of filenames (from the selection)
+    - tab: 'images' or 'videos' when the user wants a whole tab
+    - neither: the whole project (both tabs)"""
+    p = projects.valid_project(project)
+    base = projects.project_dir(p)
+    files = []
+    seen = set()
+
+    def add(path):
+        if path and path.is_file() and str(path) not in seen:
+            files.append(path)
+            seen.add(str(path))
+
+    if names:
+        for n in names:
+            found = projects.find_media(p, Path(n).name)
+            add(found)
+        return p, base, files
+
+    kinds = []
+    if tab == "images": kinds = ["image"]
+    elif tab == "videos": kinds = ["video"]
+    else: kinds = ["image", "video"]
+    for kind in kinds:
+        d = projects.media_dir(p, kind)
+        exts = IMAGE_EXTS if kind == "image" else VIDEO_EXTS
+        if d.is_dir():
+            for f in sorted(d.iterdir(), key=lambda x: x.name.lower()):
+                if f.is_file() and f.suffix.lower() in exts:
+                    add(f)
+    return p, base, files
+
+
+def _stream_zip(files, base, zip_name):
+    """Build a zip on disk (so we don't balloon memory on big projects) and
+    stream it back; the temp file is deleted as soon as the stream closes."""
+    tmp = tempfile.NamedTemporaryFile(prefix="megagen-dl-", suffix=".zip", delete=False)
+    tmp_path = tmp.name
+    try:
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED, allowZip64=True) as zf:
+            for f in files:
+                try:
+                    arc = f.relative_to(base)
+                except ValueError:
+                    arc = Path(f.name)
+                zf.write(f, arcname=str(arc))
+        tmp.close()
+    except Exception:
+        tmp.close()
+        try: os.unlink(tmp_path)
+        except OSError: pass
+        raise
+
+    size = os.path.getsize(tmp_path)
+
+    def gen():
+        try:
+            with open(tmp_path, "rb") as fh:
+                while True:
+                    chunk = fh.read(64 * 1024)
+                    if not chunk: break
+                    yield chunk
+        finally:
+            try: os.unlink(tmp_path)
+            except OSError: pass
+
+    return StreamingResponse(
+        gen(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_name}"',
+            "Content-Length": str(size),
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.get("/api/projects/{name}/files")
+def api_project_files(name: str, tab: str = ""):
+    """List everything downloadable in a project — used by the file-browser modal.
+    Returns images, videos (grouped) with filename, size, mtime."""
+    p = projects.valid_project(name)
+    base = projects.project_dir(p)
+    out = {"project": p, "groups": []}
+    kinds = []
+    if tab == "images": kinds = [("image", "images")]
+    elif tab == "videos": kinds = [("video", "videos")]
+    else: kinds = [("image", "images"), ("video", "videos")]
+    for kind, label in kinds:
+        d = projects.media_dir(p, kind)
+        exts = IMAGE_EXTS if kind == "image" else VIDEO_EXTS
+        items = []
+        if d.is_dir():
+            for f in sorted(d.iterdir(), key=lambda x: x.name.lower()):
+                if not (f.is_file() and f.suffix.lower() in exts):
+                    continue
+                try: st = f.stat()
+                except OSError: continue
+                items.append({
+                    "name": f.name,
+                    "kind": kind,
+                    "size": st.st_size,
+                    "mtime": int(st.st_mtime),
+                })
+        out["groups"].append({"kind": kind, "label": label, "items": items})
+    out["total"] = sum(len(g["items"]) for g in out["groups"])
+    return out
+
+
+@app.post("/api/projects/{name}/download")
+async def api_project_download(name: str, request: Request):
+    """Zip up the requested files and stream the result.
+    - body {names: [...]} downloads just those (one-item lists come back raw);
+    - body {tab: 'images'|'videos'} zips a whole tab;
+    - body {} zips the whole project."""
+    data = await body(request)
+    names = data.get("names") or []
+    tab = data.get("tab") or ""
+    try:
+        project, base, files = _collect_media(name, names, tab)
+    except Exception as e:
+        return fail(f"{type(e).__name__}: {e}")
+    if not files:
+        return fail("Nothing to download — this project has no media yet.", 404)
+
+    # single file: send the raw file so phones/computers get a proper filename
+    if len(files) == 1 and names:
+        return _send(files[0], request)
+
+    label = _safe_zip_name(project)
+    if tab in ("images", "videos") and not names:
+        zip_name = f"{label} - {tab}.zip"
+    elif names:
+        zip_name = f"{label} - {len(files)} items.zip"
+    else:
+        zip_name = f"{label}.zip"
+    return _stream_zip(files, base, zip_name)
 
 
 # ---------------- prompts ----------------
