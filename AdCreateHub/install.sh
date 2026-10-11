@@ -32,7 +32,8 @@ if [ ! -d "$VENV" ]; then
   python3 -m venv "$VENV"
 fi
 "$VENV/bin/pip" install --upgrade -q pip
-"$VENV/bin/pip" install -q flask google-cloud-aiplatform \
+# gradio is Bananza's; everything else is shared or MegaGen-specific
+"$VENV/bin/pip" install -q flask gradio google-cloud-aiplatform \
   -r "$INNER/megagen/requirements.txt"
 
 say "Opening firewall ports 8000 / 7860 / 7861"

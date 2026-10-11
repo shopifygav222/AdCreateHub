@@ -53,7 +53,7 @@ git reset --hard "origin/$BRANCH" >> "$LOG" 2>&1
 
 # refresh deps in case requirements.txt or hub needs changed
 if [ -x "$VENV_PIP" ]; then
-  "$VENV_PIP" install -q flask -r "$INNER/megagen/requirements.txt" >> "$LOG" 2>&1 || true
+  "$VENV_PIP" install -q flask gradio -r "$INNER/megagen/requirements.txt" >> "$LOG" 2>&1 || true
 fi
 
 systemctl restart adcreatehub-panel >> "$LOG" 2>&1
