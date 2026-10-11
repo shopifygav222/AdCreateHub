@@ -1,0 +1,23 @@
+# Runtime state, never tracked
+AdCreateHub/megagen/config.json
+AdCreateHub/megagen/usage.json
+AdCreateHub/megagen/accounts.json
+AdCreateHub/Bananza/config.json
+AdCreateHub/.update-pending
+AdCreateHub/.update-log.json
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Generated media & trash (user data, big)
+AdCreateHub/megagen/output/
+AdCreateHub/Bananza/output/
+AdCreateHub/megagen/.thumbs/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/

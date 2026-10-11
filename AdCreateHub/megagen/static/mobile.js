@@ -94,6 +94,40 @@
   // run once on load
   setTimeout(syncGenbarHeight, 60);
 
+  // ---------------- lightbox: ⋯ overflow menu (mobile only) ----------------
+  const lbMoreBtn = $('lb-more-btn');
+  const lbMorePop = $('lb-more-pop');
+  function placeLbMore() {
+    const r = lbMoreBtn.getBoundingClientRect();
+    lbMorePop.style.top = (r.bottom + 6) + 'px';
+    lbMorePop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+  }
+  function closeLbMore() { lbMorePop.classList.add('hidden'); }
+  function toggleLbMore() {
+    if (lbMorePop.classList.contains('hidden')) { placeLbMore(); lbMorePop.classList.remove('hidden'); }
+    else closeLbMore();
+  }
+  lbMoreBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleLbMore(); });
+  lbMorePop.addEventListener('click', (e) => {
+    // let the lightbox's own [data-lb] handler process the action, then close
+    const b = e.target.closest('[data-lb]');
+    if (b) {
+      e.stopPropagation();
+      closeLbMore();
+      lbMoreBtn.blur();
+      // forward the action — Lightbox's internal dispatcher reads data-lb on
+      // the real buttons under .lb-actions, so synthesize a click there
+      const target = document.querySelector('.lb-actions [data-lb="' + b.dataset.lb + '"]');
+      if (target) target.click();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (!lbMorePop.classList.contains('hidden')
+        && !e.target.closest('#lb-more-pop')
+        && e.target !== lbMoreBtn) closeLbMore();
+  });
+  window.addEventListener('resize', () => { if (!lbMorePop.classList.contains('hidden')) placeLbMore(); });
+
   // ---------------- lightbox: touch navigation + pinch zoom ----------------
   const lbRoot = $('lightbox');
   const lbImg = lbRoot.querySelector('.lb-img');

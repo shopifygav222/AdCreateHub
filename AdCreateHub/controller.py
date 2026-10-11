@@ -217,11 +217,25 @@ def _lookup(key):
 app = Flask(__name__)
 
 
+def _read_update_log():
+    """auto-update.sh writes .update-log.json after a successful apply.
+    The hub surfaces it so the UI can toast "✓ Updated to <commit>"."""
+    path = BASE_DIR / ".update-log.json"
+    try:
+        import json as _json
+        return _json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 @app.get("/api/status")
 def api_status():
     if not _authorized():
         return jsonify({"error": "bad key"}), 401
-    return jsonify({"apps": [a.snapshot() for a in APPS.values()]})
+    return jsonify({
+        "apps": [a.snapshot() for a in APPS.values()],
+        "last_update": _read_update_log(),
+    })
 
 
 @app.post("/api/<key>/start")
@@ -510,6 +524,54 @@ PAGE_HTML = r"""<!DOCTYPE html>
 
   .foot { margin-top: 18px; font-size: 11px; color: #6e678c; text-align: center; }
 
+  /* update-complete toast — fires once after the auto-updater applies */
+  .updtoast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ecfdf5;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 13px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .55);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 92vw;
+    z-index: 999;
+    animation: upd-in .32s ease;
+  }
+  .updtoast .x {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 2px 4px;
+    opacity: .75;
+  }
+  .updtoast .x:hover { opacity: 1; }
+  @keyframes upd-in {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+  }
+
+  /* persistent "last update" chip in the panel foot */
+  .updbadge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, .12);
+    border: 1px solid rgba(16, 185, 129, .36);
+    color: #a7f3d0;
+    font-size: 11px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .orb, .ringspin, .card.st-online .ringwrap { animation: none !important; }
     .card.st-online .ringwrap { box-shadow: 0 0 44px rgba(52,211,153,.45); }
@@ -537,7 +599,10 @@ PAGE_HTML = r"""<!DOCTYPE html>
     <div class="sub">Remote Control</div>
   </div>
   <div class="grid" id="cards"></div>
-  <div class="foot">Anyone with an app's link can generate with your credits — share wisely.</div>
+  <div class="foot">
+    Anyone with an app's link can generate with your credits — share wisely.
+    <div id="updbadge-wrap"></div>
+  </div>
 </div>
 
 <template id="card-tpl">
@@ -697,12 +762,59 @@ function renderOne(a){
   }
 }
 
+function fmtAgo(iso) {
+  if (!iso) return "";
+  var t = Date.parse(iso);
+  if (!t) return "";
+  var secs = Math.max(1, Math.round((Date.now() - t) / 1000));
+  if (secs < 60) return secs + "s ago";
+  var mins = Math.round(secs / 60);
+  if (mins < 60) return mins + " min ago";
+  var hrs = Math.round(mins / 60);
+  if (hrs < 48) return hrs + "h ago";
+  return Math.round(hrs / 24) + "d ago";
+}
+
+function noteUpdate(u) {
+  if (!u || !u.sha) return;
+  var wrap = el("updbadge-wrap");
+  if (wrap) {
+    wrap.innerHTML = '<span class="updbadge">✓ updated ' + fmtAgo(u.at)
+      + ' · ' + (u.short || u.sha.slice(0, 7)) + '</span>';
+  }
+  var seen = "";
+  try { seen = localStorage.getItem("adch_last_update_sha") || ""; } catch (e) { /* private mode */ }
+  if (seen === u.sha) return;                           // already shown this one
+  try { localStorage.setItem("adch_last_update_sha", u.sha); } catch (e) { /* private mode */ }
+  showUpdateToast(u);
+}
+
+var updToastEl = null;
+function showUpdateToast(u) {
+  if (updToastEl) updToastEl.remove();
+  updToastEl = document.createElement("div");
+  updToastEl.className = "updtoast";
+  var msg = u.subject ? u.subject : "Updated";
+  if (msg.length > 72) msg = msg.slice(0, 69) + "…";
+  updToastEl.innerHTML = '<span>✓ Updated — ' + msg.replace(/[<>&]/g,
+    function(c){ return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c]; }) + '</span>'
+    + '<button class="x" aria-label="Dismiss">✕</button>';
+  updToastEl.querySelector(".x").onclick = function() {
+    if (updToastEl) { updToastEl.remove(); updToastEl = null; }
+  };
+  document.body.appendChild(updToastEl);
+  setTimeout(function() {
+    if (updToastEl) { updToastEl.remove(); updToastEl = null; }
+  }, 8000);
+}
+
 async function refresh(){
   if (!unlocked) return;
   try {
     var s = await apiGet("/api/status");
     buildCards(s.apps);
     renderAll(s);
+    noteUpdate(s.last_update);
   }
   catch(e){
     if (e.message === "401") { localStorage.removeItem("adch_key"); showGate("Session ended — enter your password."); }

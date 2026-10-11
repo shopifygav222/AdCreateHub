@@ -399,13 +399,23 @@
 
 <div id="lightbox" class="hidden">
   <div class="lb-actions">
-    <button class="icon-btn" data-lb="regen" title="Regenerate — replace this one">🔄</button>
-    <button class="icon-btn" data-lb="new" title="New — same generation, added next to it">✨</button>
-    <button class="icon-btn" data-lb="edit" title="Edit prompt — generate a new one next to it">✏️</button>
-    <button class="icon-btn" data-lb="copy" title="Copy">📋</button>
+    <!-- primary row: always visible on every screen -->
     <button class="icon-btn" data-lb="download" title="Download">⤓</button>
     <button class="icon-btn danger" data-lb="delete" title="Delete">🗑</button>
+    <!-- extras: inline on desktop, folded into ⋯ on mobile -->
+    <button class="icon-btn lb-extra" data-lb="regen" title="Regenerate — replace this one">🔄</button>
+    <button class="icon-btn lb-extra" data-lb="new" title="New — same generation, added next to it">✨</button>
+    <button class="icon-btn lb-extra" data-lb="edit" title="Edit prompt — generate a new one next to it">✏️</button>
+    <button class="icon-btn lb-extra" data-lb="copy" title="Copy">📋</button>
+    <!-- the ⋯ button appears only on mobile; the popup lives below -->
+    <button class="icon-btn lb-more-btn" id="lb-more-btn" title="More actions" aria-label="More actions">⋯</button>
     <button class="icon-btn" data-lb="close" title="Close">✕</button>
+  </div>
+  <div class="lb-more-pop hidden" id="lb-more-pop">
+    <button class="pop-item" data-lb="regen"><span>🔄</span> Regenerate</button>
+    <button class="pop-item" data-lb="new"><span>✨</span> Variant</button>
+    <button class="pop-item" data-lb="edit"><span>✏️</span> Edit prompt</button>
+    <button class="pop-item" data-lb="copy"><span>📋</span> Copy</button>
   </div>
   <button class="lb-nav prev mobile-only" data-lb-nav="-1" aria-label="Previous">‹</button>
   <button class="lb-nav next mobile-only" data-lb-nav="1" aria-label="Next">›</button>
