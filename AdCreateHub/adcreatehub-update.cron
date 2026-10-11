@@ -1,0 +1,6 @@
+# AdCreateHub auto-update
+# Every minute, pull origin/main and restart the hub if the commit changed.
+# Install with:  sudo cp adcreatehub-update.cron /etc/cron.d/adcreatehub-update
+#
+# Fields: m h dom mon dow user command
+*  *  *  *  *  root  /home/ubuntu/adcreatehub/auto-update.sh
