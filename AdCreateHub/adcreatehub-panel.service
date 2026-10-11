@@ -6,7 +6,10 @@ Wants=network-online.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/adcreatehub
-Environment=GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/adcreatehub/gcp-key.json
+# Auth: Google Cloud ADC (user login via `gcloud auth application-default
+# login`) is picked up from the service user's $HOME/.config/gcloud/. No
+# service-account key file is required or expected inside the repo.
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/home/ubuntu/adcreatehub/venv/bin/python /home/ubuntu/adcreatehub/controller.py
 Restart=always
 RestartSec=5

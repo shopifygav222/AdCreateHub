@@ -21,3 +21,14 @@ AdCreateHub/megagen/.thumbs/
 .DS_Store
 .vscode/
 .idea/
+
+# Secrets — service account keys & other credentials must never be committed
+*gcp-key*.json
+*service-account*.json
+*service_account*.json
+*credentials*.json
+*-key.json
+gcp-key.json
+.env
+.env.*
+!.env.example

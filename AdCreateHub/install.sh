@@ -54,7 +54,9 @@ Wants=network-online.target
 [Service]
 User=$USER
 WorkingDirectory=$INNER
-Environment=GOOGLE_APPLICATION_CREDENTIALS=$INNER/gcp-key.json
+# Auth: Google Cloud ADC (user login via \`gcloud auth application-default
+# login\`) is picked up from the service user's \$HOME/.config/gcloud/. No
+# service-account key file is required or expected inside the repo.
 Environment=PYTHONUNBUFFERED=1
 ExecStart=$VENV/bin/python $INNER/controller.py
 Restart=always
