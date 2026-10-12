@@ -4778,8 +4778,13 @@ def plan_video_jobs(prompt, queue, count, stamp, out_dir, model_label,
         return f"{word} {len(ordered)} tagged image(s) → video, {count} output(s)", jobs
 
     if queue:
-        jobs = [(prompt, [q], out_dir / f"{Path(q).stem}_video_{stamp}.mp4") for q in queue]
-        return f"Animating all {len(queue)} tray image(s)", jobs
+        # v6.5: respect Outputs on "animate the tray" too — one clip per image per
+        # pass, repeated `count` times. Previously Outputs was silently ignored
+        # whenever the tray had something in it.
+        jobs = [(prompt, [q], out_dir / f"{Path(q).stem}_video_{stamp}_{i + 1}.mp4")
+                for q in queue for i in range(count)]
+        extra = f", {count} output(s) each" if count > 1 else ""
+        return f"Animating all {len(queue)} tray image(s){extra}", jobs
 
     jobs = [(prompt, [], out_dir / f"video_{stamp}_{i + 1}.mp4") for i in range(count)]
     return f"Text-to-video, {count} output(s)", jobs
@@ -4809,8 +4814,13 @@ def plan_jobs(prompt, queue, count, stamp, out_dir):
         return f"Combining {len(ordered)} tagged image(s), {count} output(s)", jobs
 
     if queue:
-        jobs = [(prompt, [p], out_dir / f"{Path(p).stem}_nb2_{stamp}.png") for p in queue]
-        return f"Editing all {len(queue)} tray image(s)", jobs
+        # v6.5: respect Outputs on "edit the tray" too — one image per ref per
+        # pass, repeated `count` times. Previously Outputs was silently ignored
+        # whenever the tray had something in it.
+        jobs = [(prompt, [p], out_dir / f"{Path(p).stem}_nb2_{stamp}_{i + 1}.png")
+                for p in queue for i in range(count)]
+        extra = f", {count} output(s) each" if count > 1 else ""
+        return f"Editing all {len(queue)} tray image(s){extra}", jobs
 
     jobs = [(prompt, [], out_dir / f"banana_{stamp}_{i + 1}.png") for i in range(count)]
     return f"Text-to-image, {count} output(s)", jobs
