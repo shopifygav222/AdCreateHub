@@ -106,9 +106,10 @@ APP_VERSION = "6.5"
 PRICE_PER_IMAGE = {"1K": 0.067, "2K": 0.101, "4K": 0.151}
 
 MODELS = {
-    # Nano Banana 2.1 — best-guess ID; swap for the exact Vertex model string
-    # from Model Garden if generation returns "model not found".
-    "Nano Banana 2.1": "gemini-3.2-flash-image",
+    # Nano Banana 2.1 — GA on Vertex since 2026-10-06.
+    "Nano Banana 2.1": "gemini-nano-banana-2.1",
+    # Nano Banana 2 (gemini-3.1-flash-image) is scheduled to shut down
+    # 2026-10-29; kept here until then so saved config keeps working.
     "Nano Banana 2": "gemini-3.1-flash-image",
     "Nano Banana 2 Lite": "gemini-3.1-flash-lite-image",
     "Nano Banana Pro": "gemini-3-pro-image",
@@ -140,9 +141,10 @@ VIDEO_MODELS = {
     # audio: the Interactions API takes no audio flag — gen_video_omni can't send
     # one, so the Sound toggle is hidden for Omni rather than lying to the user.
     #
-    # Omni 1.1 Flash is the GA successor to the Omni Flash preview; best-guess ID
-    # — swap for the exact Vertex string if generation returns "model not found".
-    "Omni 1.1 Flash · video": {"id": "gemini-omni-1-1-flash",   "kind": "omni", "pps": 0.10, "audio": False, "clip": 10, "durs": OMNI_DURS},
+    # Omni 1.1 Flash: GA on the Gemini API since 2026-08-27.
+    "Omni 1.1 Flash · video": {"id": "gemini-omni-1.1-flash",   "kind": "omni", "pps": 0.10, "audio": False, "clip": 10, "durs": OMNI_DURS},
+    # Omni Flash (preview) was deprecated 2026-09-30 — keep only if a saved
+    # config still names it; new picks should use the 1.1 Flash entry above.
     "Omni Flash · video":     {"id": "gemini-omni-flash-preview", "kind": "omni", "pps": 0.10, "audio": False, "clip": 10, "durs": OMNI_DURS},
 }
 VIDEO_DURATIONS = OMNI_DURS   # widest set — per-model lists come from model["durs"]
