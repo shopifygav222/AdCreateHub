@@ -20,7 +20,7 @@ DEFAULTS = {
     "last_project": DEFAULT_PROJECT,
     "last_tab": "images",
     "workers": 3,
-    "img": {"model": "Nano Banana 2", "aspect": "auto", "size": "1K", "outputs": 1},
+    "img": {"model": "Nano Banana 2.1", "aspect": "auto", "size": "1K", "outputs": 1},
     "vid": {"model": "Veo 3.1 Fast · video", "aspect": "16:9", "res": "720p",
             "dur": 8, "audio": True, "outputs": 1},
     "grid_cols": 6,
